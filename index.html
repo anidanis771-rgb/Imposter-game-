@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة المحتال الجزائري - Imposter DZ</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; }
+        body { background-color: #0d1b2a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        
+        .screen { display: none; width: 100%; max-width: 400px; background: rgba(27, 38, 59, 0.9); border: 2px solid #415a77; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); position: relative; }
+        .active { display: block; }
+        
+        h1, h2 { margin-bottom: 20px; color: #e0e1dd; }
+        h1 span { color: #e63946; font-size: 0.8em; display: block; margin-top: 5px; }
+        
+        button { background-color: #1d3557; color: white; border: 2px solid #457b9d; padding: 12px 20px; margin: 8px 0; width: 100%; font-size: 16px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #457b9d; }
+        
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #415a77; background: #0d1b2a; color: white; font-size: 16px; text-align: center; }
+        
+        .back-btn { position: absolute; top: 15px; left: 15px; background: #e63946; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px; color: white; z-index: 101; }
+        
+        /* واجهات توزيع الأدوار */
+        .role-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 20px; text-align: center; background-size: cover; background-position: center; background-repeat: no-repeat; }
+        .bg-green { background-color: #2b9348; background-image: none !important; }
+        .bg-blue { background-color: #0077b6; }
+        .bg-red { background-color: #d90429; background-image: none !important; }
+        
+        /* طبقة عتمة لجعل النص واضحاً فوق صور الخلفية */
+        .role-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1;
+        }
+        .role-screen > * {
+            position: relative;
+            z-index: 2;
+        }
+
+        .next-step-btn { background-color: #c77dff; color: black; font-weight: bold; border: 2px solid #000; padding: 12px 25px; border-radius: 8px; margin-top: 20px; cursor: pointer; font-size: 16px; width: auto; display: inline-block; }
+        .next-step-btn:hover { background-color: #9d4edd; color: white; }
+        
+        .category-btn { background: #3a86ff; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <!-- الواجهة الرئيسية -->
+    <div id="screen-home" class="screen active">
+        <h1>لعبة المحتال الجزائرية <span>Imposter DZ</span></h1>
+        <button onclick="goToScreen('screen-categories')" style="background-color: #e63946; font-size: 18px; font-weight: bold;">المحتال / Imposter</button>
+    </div>
+
+    <!-- فئات الألعاب -->
+    <div id="screen-categories" class="screen">
+        <button class="back-btn" onclick="goToScreen('screen-home')">X</button>
+        <h2>اختر الفئة</h2>
+        <button class="category-btn" onclick="selectCategory('traditional_food')">ماكولات تقليدية</button>
+        <button class="category-btn" onclick="selectCategory('traditional_sweets')">حلويات تقليدية</button>
+        <button class="category-btn" onclick="selectCategory('algerian_players')">لاعبين جزائريين</button>
+        <button class="category-btn" onclick="selectCategory('global_players')">لاعبين عالميين</button>
+        <button class="category-btn" onclick="selectCategory('algerian_figures')">شخصيات جزائرية مشهورة</button>
+    </div>
+
+    <!-- إعدادات اللعبة -->
+    <div id="screen-setup" class="screen">
+        <button class="back-btn" onclick="goToScreen('screen-categories')">X</button>
+        <h2>إعدادات اللاعبين</h2>
+        <label>عدد اللاعبين:</label>
+        <input type="number" id="num-players" min="3" max="15" value="4">
+        <label>عدد المحتالين:</label>
+        <input type="number" id="num-imposters" min="1" max="3" value="1">
+        <button onclick="startGame()" style="background-color: #2b9348; font-weight: bold; margin-top: 15px;">البدء</button>
+    </div>
+
+    <script>
+        const gameData = {
+            traditional_food: ["كسكس", "حريرة", "شربة", "طاجين الزيتون", "لحم لحلو", "شخشوخة", "الزفيطي", "المحاجب"],
+            traditional_sweets: ["مقروط", "بقلاوة", "شاراك"],
+            algerian_players: ["رياض محرز", "عمورة", "إبراهيم مازة", "امين غويري", "مبولحي", "حاج موسى", "بلايلي", "بلعمري", "بن سبعيني", "بن ناصر", "ايت نوري", "عطال"],
+            global_players: [
+                "ميسي", "هازارد", "دافيد فيا", "بيكهام", "دروغبا", "حكيمي", "محرز", "فيرمينو", "رونالدينيو", "رونالدو نازاريو", "يايا توري", "بيلينغهام", "فالفيردي", "شواميني", "بوفون", "دوناروما", "لياو", "مبابي", "كريستيانو رونالدو", "بيلي", "هاري كين", "محمد صلاح", "فيتينيا", "جواو نيفاز", "جواو فيليكس", "نيمار", "اوليزي", "ديمبيلي", "هالاند", "باتيستوتا", "حاج ديوف", "كانتونا", "زين الدين زيدان", "بويول", "راموس", "بيبي", "اينيستا", "بيدري", "رودريغو", "فينيسيوس", "كوكوريا", "ديبول", "انزو فيرنانداز", "ايميليانو مارتيناز", "مالديني", "ابراهيموفيتش", "نيستا", "روبيرتو كارلوس", "مارادونا", "كاكا",
+                "إرلينغ هالاند", "مسعود أوزيل", "لوكا مودريتش", "تييري هنري", "تيبو كورتوا", "جانلويجي بوفون", "مانويل نوير", "جمال موسيالا",
+                "سيرجيو راموس", "غاريث بيل", "جود بيلينغهام", "إيميليانو مارتينيز", "رودريغو دي بول", "يان ماريوس ألتهاوس", "واران زائير إيمري", "فيرمين لوبيز",
+                "ديفيد بيكهام", "رونالدو نازاريو", "فيديريكو دي ماريا", "باولو مالديني", "زلاتان إبراهيموفيتش", "توني كروس", "ليونيل ميسي", "فيرجيل فان دايك",
+                "رودري", "إنزو فرنانديز", "بيدري", "نونو منديز", "برونو فيرنانديز", "رافينيا", "كول بالمر", "كيفين دي بروين", "مايكل أوليز", "فينيسيوس جونيور",
+                "لامين يامال", "هاري كين", "مارك كوكوريلا", "كارليس بويول", "بيبي", "مارسيلو", "بيليه", "دييغو مارادونا", "كاكا", "رونالدينيو",
+                "ديكلان رايس", "عثمان ديمبيلي", "روبرت ليفاندوفسكي", "كاسيميرو", "أندريس إنييستا", "أوريليان تشواميني"
+            ],
+            algerian_figures: ["شوشع", "قتحيحة", "كوكو القرش", "ماميدو", "نبيل عسلي", "اللاز", "صويلح", "حميدة العالمية", "ميناز", "ريفكا", "طراب كينغ", "ديدين كلاش", "ريضا سيتي16", "تبون", "بوتفليقة", "سيد احمد القمارجي", "جمال بالماضي", "جليل باليرمو"]
+        };
+
+        // خريطة صور اللاعبين العالميين حسب أسمائهم
+        const playerImages = {
+            "سيرجيو راموس": "1000002689_2.jpg",
+            "غاريث بيل": "1000002690_3.jpg",
+            "كريستيانو رونالدو": "1000002691_3.jpg",
+            "جود بيلينغهام": "1000002692_3.jpg",
+            "إيميليانو مارتينيز": "1000002693_3.jpg",
+            "رودريغو دي بول": "1000002694_3.jpg",
+            "يان ماريوس ألتهاوس": "1000002695_3.jpg",
+            "جواو فيليكس": "1000002696_3.jpg",
+            "واران زائير إيمري": "1000002697_3.jpg",
+            "فيرمين لوبيز": "1000002698_3.jpg",
+            "باتيستوتا": "1000002679_3.jpg",
+            "ديفيد بيكهام": "1000002680_3.jpg",
+            "رونالدو نازاريو": "1000002687_3.jpg",
+            "فيديريكو دي ماريا": "1000002683_3.jpg",
+            "باولو مالديني": "1000002681_3.jpg",
+            "زلاتان إبراهيموفيتش": "1000002684_3.jpg",
+            "توني كروس": "1000002685_3.jpg",
+            "ليونيل ميسي": "1000002686_3.jpg",
+            "فيرجيل فان دايك": "1000002688_3.jpg",
+            "إرلينغ هالاند": "1000002678_2.jpg",
+            "مسعود أوزيل": "1000002677_2.jpg",
+            "لوكا مودريتش": "1000002676_2.jpg",
+            "تييري هنري": "1000002675_2.jpg",
+            "تيبو كورتوا": "1000002674_2.jpg",
+            "جانلويجي بوفون": "1000002673_2.jpg",
+            "مانويل نوير": "1000002672_2.jpg",
+            "رياض محرز": "1000002671_2.jpg",
+            "جمال موسيالا": "1000002670_2.jpg",
+            "رودري": "1000002668.jpg",
+            "إنزو فرنانديز": "1000002667.jpg",
+            "بيدري": "1000002666.jpg",
+            "نونو منديز": "1000002665.jpg",
+            "برونو فيرنانديز": "1000002664.jpg",
+            "رافينيا": "1000002663.jpg",
+            "كول بالمر": "1000002662.jpg",
+            "كيفين دي بروين": "1000002661.jpg",
+            "مايكل أوليز": "1000002660.jpg",
+            "فينيسيوس جونيور": "1000002659.jpg",
+            "لامين يامال": "1000002658.jpg",
+            "هاري كين": "1000002657.jpg",
+            "مارك كوكوريلا": "1000002656.jpg",
+            "كارليس بويول": "1000002655.jpg",
+            "بيبي": "1000002654.jpg",
+            "مارسيلو": "1000002653.jpg",
+            "بيليه": "1000002652.jpg",
+            "دييغو مارادونا": "1000002651.jpg",
+            "كاكا": "1000002650.jpg",
+            "رونالدينيو": "1000002649.jpg",
+            "ديكلان رايس": "1000002648.jpg",
+            "عثمان ديمبيلي": "1000002647.jpg",
+            "روبرت ليفاندوفسكي": "1000002646.jpg",
+            "كاسيميرو": "1000002645.jpg",
+            "زين الدين زيدان": "1000002644.jpg",
+            "أندريس إنييستا": "1000002643.jpg",
+            "نيمار": "1000002642.jpg",
+            "أوريليان تشواميني": "1000002641.jpg",
+            "فيتينيا": "1000002640.jpg",
+            "محمد صلاح": "1000002639.jpg"
+        };
+
+        let selectedCategoryKey = '';
+        let playersCount = 0;
+        let impostersCount = 0;
+        let rolesArray = [];
+        let currentPlayerIndex = 0;
+        let chosenSecretWord = '';
+
+        function goToScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function selectCategory(categoryKey) {
+            selectedCategoryKey = categoryKey;
+            goToScreen('screen-setup');
+        }
+
+        function startGame() {
+            playersCount = parseInt(document.getElementById('num-players').value);
+            impostersCount = parseInt(document.getElementById('num-imposters').value);
+
+            if (impostersCount >= playersCount) {
+                alert("عدد المحتالين يجب أن يكون أقل من عدد اللاعبين!");
+                return;
+            }
+
+            const list = gameData[selectedCategoryKey];
+            chosenSecretWord = list[Math.floor(Math.random() * list.length)];
+
+            rolesArray = [];
+            for (let i = 0; i < impostersCount; i++) {
+                rolesArray.push("imposter");
+            }
+            for (let i = impostersCount; i < playersCount; i++) {
+                rolesArray.push("civilian");
+            }
+            rolesArray.sort(() => Math.random() - 0.5);
+
+            currentPlayerIndex = 0;
+            showGreenTransitionScreen();
+        }
+
+        function showGreenTransitionScreen() {
+            if (currentPlayerIndex >= playersCount) {
+                showFinalCompletionScreen();
+                return;
+            }
+
+            const transitionDiv = document.createElement('div');
+            transitionDiv.className = 'role-screen bg-green';
+            transitionDiv.innerHTML = `
+                <h2>كشف</h2>
+                <p>دور اللاعب رقم ${currentPlayerIndex + 1}</p>
+                <button class="next-step-btn" onclick="showRoleResult(this)">اضغط هنا لرؤية دورك</button>
+            `;
+            document.body.appendChild(transitionDiv);
+        }
+
+        function showRoleResult(btnElement) {
+            const parent = btnElement.parentElement;
+            parent.remove();
+
+            const isImposter = rolesArray[currentPlayerIndex] === "imposter";
+            const resultDiv = document.createElement('div');
+            
+            if (isImposter) {
+                resultDiv.className = 'role-screen bg-red';
+                resultDiv.innerHTML = `
+                    <h1 style="font-size: 40px; margin-bottom: 30px;">محتال</h1>
+                    <button class="next-step-btn" onclick="nextPlayer(this)" style="color: black;">تخطي</button>
+                `;
+            } else {
+                resultDiv.className = 'role-screen';
+                
+                // التحقق مما إذا كانت الفئة هي "لاعبين عالميين" ولللاعب صورة مسجلة في القائمة
+                if (selectedCategoryKey === 'global_players' && playerNamesMatchWithImage(chosenSecretWord)) {
+                    const imgFile = getPlayerImage(chosenSecretWord);
+                    resultDiv.style.backgroundImage = `url('${imgFile}')`;
+                    resultDiv.innerHTML = `
+                        <div class="role-overlay"></div>
+                        <h2 style="font-size: 18px; margin-bottom: 10px;">الشخصية أو الكلمة هي:</h2>
+                        <h1 style="font-size: 32px; margin-bottom: 30px;">${chosenSecretWord}</h1>
+                        <button class="next-step-btn" onclick="nextPlayer(this)" style="color: black;">تخطي</button>
+                    `;
+                } else {
+                    // الخلفية الزرقاء الافتراضية إذا لم تكن هناك صورة مسجلة
+                    resultDiv.style.backgroundColor = '#0077b6';
+                    resultDiv.innerHTML = `
+                        <h2 style="font-size: 18px; margin-bottom: 10px;">الشخصية أو الكلمة هي:</h2>
+                        <h1 style="font-size: 32px; margin-bottom: 30px;">${chosenSecretWord}</h1>
+                        <button class="next-step-btn" onclick="nextPlayer(this)" style="color: black;">تخطي</button>
+                    `;
+                }
+            }
+            document.body.appendChild(resultDiv);
+        }
+
+        function playerNamesMatchWithImage(name) {
+            return playerImages[name] !== undefined;
+        }
+
+        function getPlayerImage(name) {
+            return playerImages[name];
+        }
+
+        function nextPlayer(btnElement) {
+            btnElement.parentElement.remove();
+            currentPlayerIndex++;
+            showGreenTransitionScreen();
+        }
+
+        function showFinalCompletionScreen() {
+            const finalDiv = document.createElement('div');
+            finalDiv.id = 'final-completion-screen';
+            finalDiv.className = 'role-screen bg-green';
+            finalDiv.innerHTML = `
+                <button class="back-btn" onclick="closeFinalScreen()">X</button>
+                <h1 style="font-size: 28px; margin-bottom: 15px;">انتهى كشف الأدوار للجميع!</h1>
+                <p style="font-size: 18px; margin-bottom: 25px;">ابدأوا النقاش واللعب الآن</p>
+                <button class="next-step-btn" onclick="closeFinalScreen()" style="color: black;">العودة لاختيار الفئات</button>
+            `;
+            document.body.appendChild(finalDiv);
+        }
+
+        function closeFinalScreen() {
+            const finalScreen = document.getElementById('final-completion-screen');
+            if (finalScreen) {
+                finalScreen.remove();
+            }
+            goToScreen('screen-categories');
+        }
+    </script>
+</body>
+</html>
